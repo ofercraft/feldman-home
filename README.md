@@ -4,7 +4,9 @@ An independent, unofficial Android client for [Home Assistant](https://www.home-
 
 ## Download
 
-[**Download the latest APK**](https://github.com/ofercraft/feldman-home/raw/refs/heads/main/app-release.apk)
+[**Install from Google Play**](https://play.google.com/store/apps/details?id=com.feldman.ha)
+
+You can also [download the latest APK directly](https://github.com/ofercraft/feldman-home/raw/refs/heads/main/app-release.apk) to install Feldman Home without Google Play.
 
 > [!IMPORTANT]
 > Feldman Home is distributed outside Google Play. Android may ask you to allow installation from your browser or file manager. Only download the APK from this repository.
