@@ -1,0 +1,29 @@
+# Android/Gradle state
+/src/.gradle/
+/src/.idea/
+/src/.kotlin/
+/src/local.properties
+/src/**/build/
+/src/**/.cxx/
+/src/captures/
+/src/app/release/
+
+# IDE and OS files
+*.iml
+.DS_Store
+Thumbs.db
+
+# Credentials and signing material
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+keystore.properties
+
+# Logs and generated diagnostics
+*.log
+hs_err_pid*

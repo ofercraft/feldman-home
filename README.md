@@ -9,7 +9,7 @@ An independent, unofficial Android client for [Home Assistant](https://www.home-
 You can also [download the latest APK directly](https://github.com/ofercraft/feldman-home/raw/refs/heads/main/app-release.apk) to install Feldman Home without Google Play.
 
 > [!IMPORTANT]
-> Feldman Home is distributed outside Google Play. Android may ask you to allow installation from your browser or file manager. Only download the APK from this repository.
+> The repository APK is an alternative to Google Play. Android may ask you to allow installation from your browser or file manager; only install APKs downloaded from this repository.
 
 ## Features
 
@@ -59,6 +59,35 @@ Manage your home from the app or your home screen without ads, bloat, or unneces
   <img src="screenshots/tablet/07_personalization.png" alt="Tablet personalization" width="49%">
   <img src="screenshots/tablet/08_dashboard_editor.png" alt="Tablet dashboard editor" width="49%">
 </p>
+
+## Source and builds
+
+The complete Android Studio project lives in [`src/`](src/).
+
+Requirements:
+
+- JDK 17
+- Android SDK 37
+
+Build a debug APK:
+
+```bash
+cd src
+./gradlew assembleDebug
+```
+
+Release signing credentials are never stored in the repository. To create a signed release, set `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD` in your environment before running `./gradlew bundleRelease` or `./gradlew assembleRelease`.
+
+## Project policies
+
+- [Privacy policy](PRIVACY.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+## License
+
+Feldman Home is licensed under the [MIT License](LICENSE).
 
 ## Disclaimer
 

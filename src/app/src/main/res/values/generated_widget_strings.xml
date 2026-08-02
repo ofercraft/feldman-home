@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_label_button">Action Button</string>
+    <string name="widget_desc_button">Home Assistant Action Button widget</string>
+    <string name="widget_label_clock">Clock</string>
+    <string name="widget_desc_clock">Home Assistant Clock widget</string>
+    <string name="widget_label_fan">Fan</string>
+    <string name="widget_desc_fan">Home Assistant Fan widget</string>
+    <string name="widget_label_media_player">Media Player</string>
+    <string name="widget_desc_media_player">Home Assistant Media Player widget</string>
+    <string name="widget_label_climate">Climate</string>
+    <string name="widget_desc_climate">Home Assistant Climate widget</string>
+    <string name="widget_label_light">Light</string>
+    <string name="widget_desc_light">Home Assistant Light widget</string>
+    <string name="widget_label_lock">Lock</string>
+    <string name="widget_desc_lock">Home Assistant Lock widget</string>
+    <string name="widget_label_alarm">Alarm</string>
+    <string name="widget_desc_alarm">Home Assistant Alarm widget</string>
+    <string name="widget_label_cover">Cover</string>
+    <string name="widget_desc_cover">Home Assistant Cover widget</string>
+    <string name="widget_label_sensor">Sensor</string>
+    <string name="widget_desc_sensor">Home Assistant Sensor widget</string>
+    <string name="widget_label_binary_sensor">Binary Sensor</string>
+    <string name="widget_desc_binary_sensor">Home Assistant Binary Sensor widget</string>
+    <string name="widget_label_switch">Switch</string>
+    <string name="widget_desc_switch">Home Assistant Switch widget</string>
+    <string name="widget_label_vacuum">Vacuum</string>
+    <string name="widget_desc_vacuum">Home Assistant Vacuum widget</string>
+</resources>

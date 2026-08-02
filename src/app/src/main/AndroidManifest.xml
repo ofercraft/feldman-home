@@ -1,0 +1,433 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <permission
+        android:name="com.feldman.ha.permission.CARDS_BRIDGE"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <application
+        android:name=".HAApplication"
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.Ha">
+
+        <!-- main launcher -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:supportsPictureInPicture="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".widgets.AuthenticationActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance"
+            android:process=":auth"
+            android:theme="@style/Theme.Ha.Transparent" />
+
+        <activity
+            android:name=".widgets.AlarmCodeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance"
+            android:theme="@style/Theme.Ha.Transparent" />
+
+        <service
+            android:name=".ui.camera.videoplayer.service.MediaPlaybackService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".widgets.WidgetSyncService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
+                android:value="Maintains a persistent WebSocket connection to Home Assistant for real-time widget state updates and control, ensuring low-latency interaction without hitting dataSync time limits." />
+        </service>
+
+        <service
+            android:name=".widgets.WidgetActionForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
+                android:value="Sends user-initiated Home Assistant widget actions immediately after an app widget tap." />
+        </service>
+
+        <provider
+            android:name=".bridge.HomeCardsProvider"
+            android:authorities="com.feldman.ha.cards"
+            android:exported="true"
+            android:permission="com.feldman.ha.permission.CARDS_BRIDGE" />
+
+        <receiver
+            android:name=".widgets.FactoryWidgetRefreshReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.feldman.ha.action.REFRESH_WIDGETS" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widgets.WidgetUpgradeReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".mobile.MobileAppSensorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
+                android:value="Observes device state broadcasts that Android does not deliver to manifest receivers - power save mode, screen state, ringer mode, Do Not Disturb and screen brightness - so the phone's sensors reach Home Assistant as they change rather than on the next periodic sync." />
+        </service>
+
+        <!--
+            Immediate sensor pushes. Every action here is on Android 8's implicit-broadcast
+            exemption list; anything not on that list is ignored when declared in a manifest, so
+            the remaining sensors rely on MobileAppSensorService or the periodic worker instead.
+        -->
+        <receiver
+            android:name=".mobile.MobileAppSensorReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.BATTERY_OKAY" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widgets.PinCardWidgetReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- GENERATED_WIDGETS_START -->
+
+<receiver
+    android:name="com.feldman.ha.widgets.generated.ButtonWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_button">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/button_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.ButtonConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.ClockWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_clock">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/clock_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.ClockConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.FanWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_fan">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/fan_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.FanConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.Media_playerWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_media_player">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/media_player_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.Media_playerConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.ClimateWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_climate">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/climate_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.ClimateConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.LightWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_light">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/light_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.LightConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.LockWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_lock">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/lock_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.LockConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.AlarmWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_alarm">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/alarm_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.AlarmConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.CoverWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_cover">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/cover_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.CoverConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.SensorWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_sensor">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/sensor_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.SensorConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.Binary_sensorWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_binary_sensor">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/binary_sensor_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.Binary_sensorConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.SwitchWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_switch">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/switch_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.SwitchConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+<receiver
+    android:name="com.feldman.ha.widgets.generated.VacuumWidgetReceiver"
+    android:exported="true"
+    android:label="@string/widget_label_vacuum">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/vacuum_widget_info" />
+</receiver>
+
+<activity
+    android:name="com.feldman.ha.widgets.generated.VacuumConfigureActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+    </intent-filter>
+</activity>
+        <!-- GENERATED_WIDGETS_END -->
+
+        <activity
+            android:name=".widgets.WidgetSettingsActivity"
+            android:label="Widget Settings"
+            android:exported="false" />
+
+        <activity
+            android:name=".widgets.SyncLogsActivity"
+            android:label="Sync Logs"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.standby.HomeStandbyPreviewActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".ui.standby.HomeStandbyService"
+            android:label="Feldman Home"
+            android:permission="android.permission.BIND_DREAM_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/home_standby_config" />
+        </service>
+    </application>
+
+</manifest>
