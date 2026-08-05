@@ -80,6 +80,7 @@ sealed class AppDest : Dest {
                 onAddEntity = state.onAddEntity,
                 onRemoveEntity = state.onRemoveEntity,
                 dashboardEditActionRequest = state.dashboardEditActionRequest,
+                onDashboardEditActionHandled = state.onDashboardEditActionHandled,
                 entityStateSheetState = state.dashboardEntitySheetState,
                 hostManagesBackground = state.hostManagesDashboardBackground,
                 showExpressiveSurface = state.showExpressiveDashboardSurface,

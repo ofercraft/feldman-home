@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.painterResource
@@ -651,18 +652,35 @@ class MainActivity : ComponentActivity() {
                     val isLandscape = configuration.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
                     val showRail = isLandscape && !isSystemFullscreen && currentScreen.showNavigation
+                    val useLargeDashboardEditFab = configuration.screenHeightDp >= 600
                     val scaffoldPadding = if (showRail || isSystemFullscreen) PaddingValues(0.dp)
                                          else PaddingValues(bottom = bottomBarHeight)
                     val expressiveCanvas = ExpressiveCanvasSetting.isEnabled(context)
-                    val dashboardBaseColor = MaterialTheme.colorScheme.primaryContainer
-                        .copy(alpha = 0.4f)
-                        .compositeOver(MaterialTheme.colorScheme.background)
-                    val dashboardEditColor = MaterialTheme.colorScheme.tertiaryContainer
-                        .copy(alpha = 0.4f)
-                        .compositeOver(MaterialTheme.colorScheme.background)
+                    val railContainerColor = if (expressiveCanvas) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    }
+                    val dashboardBaseColor = if (expressiveCanvas) {
+                        MaterialTheme.colorScheme.primaryContainer
+                            .copy(alpha = 0.4f)
+                            .compositeOver(MaterialTheme.colorScheme.background)
+                    } else if (showRail) {
+                        railContainerColor
+                    } else {
+                        MaterialTheme.colorScheme.background
+                    }
+                    val dashboardEditColor = if (expressiveCanvas) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                            .copy(alpha = 0.4f)
+                            .compositeOver(MaterialTheme.colorScheme.background)
+                    } else {
+                        dashboardBaseColor
+                    }
                     val railEditing = currentScreen is AppDest.Dashboard && edit
+                    val dashboardRevealEditing = expressiveCanvas && railEditing
                     val railEditRevealProgress by animateFloatAsState(
-                        targetValue = if (railEditing) 1f else 0f,
+                        targetValue = if (dashboardRevealEditing) 1f else 0f,
                         animationSpec = tween(
                             durationMillis = if (railEditing) 800 else 200,
                             easing = FastOutSlowInEasing
@@ -670,7 +688,7 @@ class MainActivity : ComponentActivity() {
                         label = "navigationRailEditReveal"
                     )
                     val dashboardPageColor by animateColorAsState(
-                        targetValue = if (railEditing) dashboardEditColor else dashboardBaseColor,
+                        targetValue = if (dashboardRevealEditing) dashboardEditColor else dashboardBaseColor,
                         animationSpec = tween(
                             durationMillis = if (railEditing) 800 else 200,
                             easing = FastOutSlowInEasing
@@ -678,9 +696,8 @@ class MainActivity : ComponentActivity() {
                         label = "dashboardPageColor"
                     )
                     val railItemAccent by animateColorAsState(
-                        targetValue = if (railEditing) {
-                            if (expressiveCanvas) MaterialTheme.colorScheme.tertiaryContainer
-                            else MaterialTheme.colorScheme.tertiary
+                        targetValue = if (expressiveCanvas && railEditing) {
+                            MaterialTheme.colorScheme.tertiaryContainer
                         } else {
                             if (expressiveCanvas) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.primary
@@ -692,9 +709,8 @@ class MainActivity : ComponentActivity() {
                         label = "navigationRailItemAccent"
                     )
                     val railItemOnAccent by animateColorAsState(
-                        targetValue = if (railEditing) {
-                            if (expressiveCanvas) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onTertiary
+                        targetValue = if (expressiveCanvas && railEditing) {
+                            MaterialTheme.colorScheme.onTertiaryContainer
                         } else {
                             if (expressiveCanvas) MaterialTheme.colorScheme.onPrimaryContainer
                             else MaterialTheme.colorScheme.onPrimary
@@ -762,6 +778,11 @@ class MainActivity : ComponentActivity() {
                         onAddEntity = onAddEntity,
                         onRemoveEntity = onRemoveEntity,
                         dashboardEditActionRequest = dashboardEditActionRequest,
+                        onDashboardEditActionHandled = { requestId ->
+                            if (dashboardEditActionRequest?.id == requestId) {
+                                dashboardEditActionRequest = null
+                            }
+                        },
                     )
 
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -772,18 +793,30 @@ class MainActivity : ComponentActivity() {
                                     (dashboardEntitySheetState.backgroundReveal.value *
                                         SHEET_BACKGROUND_BLUR).dp
                                 )
-                                .dashboardRailEditRevealBackground(
-                                    baseColor = dashboardBaseColor,
-                                    revealColor = dashboardEditColor,
-                                    revealProgress = railEditRevealProgress,
-                                    originX = configuration.screenWidthDp.dp - 72.dp,
-                                    originY = configuration.screenHeightDp.dp -
-                                        if (showRail) 64.dp else 72.dp
+                                .then(
+                                    if (expressiveCanvas) {
+                                        Modifier.dashboardRailEditRevealBackground(
+                                            baseColor = dashboardBaseColor,
+                                            revealColor = dashboardEditColor,
+                                            revealProgress = railEditRevealProgress,
+                                            originX = configuration.screenWidthDp.dp - 72.dp,
+                                            originY = configuration.screenHeightDp.dp -
+                                                if (showRail) 64.dp else 72.dp
+                                        )
+                                    } else {
+                                        Modifier.background(dashboardBaseColor)
+                                    }
                                 )
                         ) {
                             if (showRail) {
-                            Row(modifier = Modifier.fillMaxSize()) {
-                            NavigationRail(containerColor = Color.Transparent) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(railContainerColor)
+                            ) {
+                            NavigationRail(
+                                containerColor = railContainerColor
+                            ) {
                                 Spacer(Modifier.weight(1f))
                                 bottomBarDestinations.forEach { dest ->
                                     val isSelected = currentScreen::class == dest::class
@@ -877,7 +910,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         DashboardEditFab(
                                             editing = edit,
-                                            large = true,
+                                            large = useLargeDashboardEditFab,
                                             onClick = onDashboardEditFabClick
                                         )
                                     }

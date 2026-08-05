@@ -55,6 +55,7 @@ data class AppState(
     val onAddEntity: (HAEntity) -> Unit,
     val onRemoveEntity: (HAEntity) -> Unit,
     val dashboardEditActionRequest: DashboardEditActionRequest? = null,
+    val onDashboardEditActionHandled: (Int) -> Unit = {},
     val externalSheetEntityId: String? = null,
     val externalSheetRequestId: Int = 0,
     // Hosts with their own chrome (e.g. Clock's standby screensaver) can hide the dashboard

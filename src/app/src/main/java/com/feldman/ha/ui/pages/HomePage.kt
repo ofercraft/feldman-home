@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.feldman.ha.data.HAEntity
 import com.feldman.ha.api.HomeAssistantApi
+import com.feldman.ha.api.provideFrigateApi
 import com.feldman.ha.R
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Brush
@@ -325,6 +326,7 @@ fun HomePage(
     externalSheetEntityId: String? = null,
     externalSheetRequestId: Int = 0,
     dashboardEditActionRequest: DashboardEditActionRequest? = null,
+    onDashboardEditActionHandled: (Int) -> Unit = {},
 ) {
     var showPicker by remember { mutableStateOf(false) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
@@ -589,6 +591,10 @@ fun HomePage(
         }
     }
 
+    val measuredCardMinSpans = remember(isLandscape, cardRowHeight) {
+        mutableStateMapOf<String, Int>()
+    }
+
     CompositionLocalProvider(
         LocalDashboardColumns provides gridColumns,
         LocalDashboardRowHeight provides cardRowHeight,
@@ -651,6 +657,7 @@ fun HomePage(
             }
             DashboardEditAction.DELETE -> activeCardKey?.let { removeCardByKey(it) }
         }
+        onDashboardEditActionHandled(request.id)
     }
 
     val isExpressiveCanvas = ExpressiveCanvasSetting.isEnabled(LocalContext.current)
@@ -677,21 +684,15 @@ fun HomePage(
     } else {
         Modifier.dashboardEditRevealBackground(
             baseColor = if (isExpressiveCanvas) primaryWash else MaterialTheme.colorScheme.background,
-            revealColor = tertiaryWash,
+            revealColor = if (isExpressiveCanvas) tertiaryWash else MaterialTheme.colorScheme.background,
             revealProgress = editRevealProgress,
             originXFromEnd = editRevealOriginXFromEnd
         )
     }
-    val topBarBackgroundModifier = if (hostManagesBackground || isExpressiveCanvas) {
+    val topBarBackgroundModifier = if (isExpressiveCanvas) {
         Modifier
     } else {
-        Modifier.dashboardEditRevealBackground(
-            baseColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            revealColor = tertiaryWash,
-            revealProgress = editRevealProgress,
-            originXFromEnd = editRevealOriginXFromEnd,
-            originY = fabCenterYInRoot
-        )
+        Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
     }
 
     Scaffold(
@@ -731,13 +732,22 @@ fun HomePage(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
                 .then(
-                    if (isExpressiveCanvas && showExpressiveSurface) {
-                        Modifier
-                            .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp)
-                            .clip(RoundedCornerShape(topStart = 44.dp, topEnd = 44.dp))
+                    if (showExpressiveSurface) {
+                        if (isExpressiveCanvas) {
+                            Modifier
+                                .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp)
+                                .clip(RoundedCornerShape(topStart = 44.dp, topEnd = 44.dp))
+                        } else {
+                            Modifier.clip(RoundedCornerShape(topStart = 44.dp))
+                        }
                     } else Modifier
                 ),
-            color = if (isExpressiveCanvas && showExpressiveSurface) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent
+            color = if (showExpressiveSurface) {
+                if (isExpressiveCanvas) MaterialTheme.colorScheme.surfaceContainerLow
+                else MaterialTheme.colorScheme.background
+            } else {
+                Color.Transparent
+            }
         ) {
             Box(Modifier.fillMaxSize()) {
             if (loading) {
@@ -855,7 +865,10 @@ fun HomePage(
                                 is DashCard.Entity -> {
                                     val entity = card.entity
                                     val spec = factorySpecForEntity(entity, configs[card.instanceId])
-                                    val minSpanY = cardMinimumSpanY(spec, entity, configs[card.instanceId], all, context)
+                                    val minSpanY = maxOf(
+                                        cardMinimumSpanY(spec, entity, configs[card.instanceId], all, context),
+                                        measuredCardMinSpans[card.key] ?: 1
+                                    )
                                     cardSpanY(configs[card.instanceId], minSpanY, isLandscape)
                                 }
                             }
@@ -883,6 +896,21 @@ fun HomePage(
                                 onActiveCardKeyChange = onActiveCardKeyChange,
                                 onRefresh = { refreshTrigger++ },
                                 onNavigate = onNavigate,
+                                minimumSpanY = maxOf(
+                                    cardMinimumSpanY(
+                                        factorySpecForEntity(card.entity, configs[card.instanceId]),
+                                        card.entity,
+                                        configs[card.instanceId],
+                                        all,
+                                        context
+                                    ),
+                                    measuredCardMinSpans[card.key] ?: 1
+                                ),
+                                onMinimumSpanYChanged = { span ->
+                                    if (measuredCardMinSpans[card.key] != span) {
+                                        measuredCardMinSpans[card.key] = span
+                                    }
+                                },
                                 onOpenSheet = { coords, local ->
                                     sheetState.open(card.entity.entity_id, coords, local) {
                                         refreshTrigger++
@@ -1297,8 +1325,33 @@ fun HomePage(
             var cameraTab by remember { mutableIntStateOf(0) }
             var frigateId by remember { mutableStateOf("") }
             var frigateDisplayName by remember { mutableStateOf("") }
+            var frigateCameras by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+            var frigateLoading by remember { mutableStateOf(false) }
+            var frigateError by remember { mutableStateOf<String?>(null) }
             val haCameras = all.filter { it.entity_id.startsWith("camera.") }
             val scheme = MaterialTheme.colorScheme
+            val appState = LocalAppState.current
+            LaunchedEffect(cameraTab, appState.frigateUrl) {
+                if (cameraTab == 1) {
+                    frigateLoading = true
+                    frigateError = null
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            provideFrigateApi(appState.tokenProvider, appState.frigateUrl)
+                                .getConfig()
+                                .cameras
+                                .map { (id, config) -> id to config.name.ifBlank { id } }
+                                .sortedBy { it.second }
+                        }
+                    }.onSuccess { cameras ->
+                        frigateCameras = cameras
+                    }.onFailure { error ->
+                        frigateCameras = emptyList()
+                        frigateError = error.localizedMessage ?: "Couldn't load Frigate cameras"
+                    }
+                    frigateLoading = false
+                }
+            }
             FullScreenAddPage(title = "Add Camera", onClose = { showCameraPicker = false }, useDialog = !inlineCardSettings) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         SecondaryTabRow(selectedTabIndex = cameraTab, containerColor = scheme.surface) {
@@ -1381,52 +1434,127 @@ fun HomePage(
                                 }
                             }
                             1 -> {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextField(
-                                        value = frigateId,
-                                        onValueChange = { frigateId = it },
-                                        label = { Text("Camera ID (e.g. front_door)") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            unfocusedBorderColor = scheme.outline.copy(alpha = 0.3f),
-                                            focusedBorderColor = scheme.primary
-                                        )
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    OutlinedTextField(
-                                        value = frigateDisplayName,
-                                        onValueChange = { frigateDisplayName = it },
-                                        label = { Text("Display Name (optional)") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            unfocusedBorderColor = scheme.outline.copy(alpha = 0.3f),
-                                            focusedBorderColor = scheme.primary
-                                        )
-                                    )
-                                    Spacer(Modifier.height(16.dp))
-                                    Button(
-                                        onClick = {
-                                            val trimmed = frigateId.trim()
-                                            if (trimmed.isNotBlank()) {
-                                                val config = CameraCardConfig(
-                                                    id = trimmed,
-                                                    source = CameraSource.FRIGATE,
-                                                    name = frigateDisplayName.trim().ifBlank { trimmed }
-                                                )
-                                                addCameraCard(config)
-                                                showCameraPicker = false
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxWidth().weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (frigateLoading) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularProgressIndicator()
                                             }
-                                        },
-                                        enabled = frigateId.isNotBlank(),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(rememberSymbolPainter("videocam"), null, Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Add Frigate Camera")
+                                        }
+                                    } else {
+                                        items(frigateCameras, key = { it.first }) { (id, name) ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .clickable {
+                                                        addCameraCard(
+                                                            CameraCardConfig(
+                                                                id = id,
+                                                                source = CameraSource.FRIGATE,
+                                                                name = name
+                                                            )
+                                                        )
+                                                        showCameraPicker = false
+                                                    }
+                                                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(scheme.primary.copy(alpha = 0.1f)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        painter = rememberSymbolPainter("videocam"),
+                                                        contentDescription = null,
+                                                        tint = scheme.primary,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
+                                                Spacer(Modifier.width(12.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                                                    Text(id, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                                                }
+                                                Icon(
+                                                    painter = rememberSymbolPainter("add_circle_outline"),
+                                                    contentDescription = "Add",
+                                                    tint = scheme.primary.copy(alpha = 0.8f),
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                        if (frigateCameras.isEmpty()) {
+                                            item {
+                                                Text(
+                                                    frigateError ?: "No Frigate cameras found",
+                                                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = scheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                    item {
+                                        Spacer(Modifier.height(16.dp))
+                                        Text("Add manually", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = frigateId,
+                                            onValueChange = { frigateId = it },
+                                            label = { Text("Camera ID (e.g. front_door)") },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                unfocusedBorderColor = scheme.outline.copy(alpha = 0.3f),
+                                                focusedBorderColor = scheme.primary
+                                            )
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = frigateDisplayName,
+                                            onValueChange = { frigateDisplayName = it },
+                                            label = { Text("Display Name (optional)") },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                unfocusedBorderColor = scheme.outline.copy(alpha = 0.3f),
+                                                focusedBorderColor = scheme.primary
+                                            )
+                                        )
+                                        Spacer(Modifier.height(16.dp))
+                                        Button(
+                                            onClick = {
+                                                val trimmed = frigateId.trim()
+                                                if (trimmed.isNotBlank()) {
+                                                    addCameraCard(
+                                                        CameraCardConfig(
+                                                            id = trimmed,
+                                                            source = CameraSource.FRIGATE,
+                                                            name = frigateDisplayName.trim().ifBlank { trimmed }
+                                                        )
+                                                    )
+                                                    showCameraPicker = false
+                                                }
+                                            },
+                                            enabled = frigateId.isNotBlank(),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(rememberSymbolPainter("videocam"), null, Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Add Frigate Camera")
+                                        }
                                     }
                                 }
                             }
@@ -1605,20 +1733,20 @@ private fun PageTabBar(
         pages.forEach { page ->
             val selected = page.id == activePageId
             val containerColor = if (selected) {
-                lerp(
-                    if (isExpressive) scheme.primaryContainer else scheme.primary,
-                    if (isExpressive) scheme.tertiaryContainer else scheme.tertiary,
-                    modeProgress
-                )
+                if (isExpressive) {
+                    lerp(scheme.primaryContainer, scheme.tertiaryContainer, modeProgress)
+                } else {
+                    scheme.primary
+                }
             } else {
                 if (isExpressive) scheme.background else scheme.surfaceVariant
             }
             val contentColor = if (selected) {
-                lerp(
-                    if (isExpressive) scheme.onPrimaryContainer else scheme.onPrimary,
-                    if (isExpressive) scheme.onTertiaryContainer else scheme.onTertiary,
-                    modeProgress
-                )
+                if (isExpressive) {
+                    lerp(scheme.onPrimaryContainer, scheme.onTertiaryContainer, modeProgress)
+                } else {
+                    scheme.onPrimary
+                }
             } else {
                 if (isExpressive) scheme.onSurface else scheme.onSurfaceVariant
             }
@@ -1717,6 +1845,8 @@ private fun DashboardCard(
     onActiveCardKeyChange: (String?) -> Unit,
     onRefresh: () -> Unit,
     onNavigate: Navigator,
+    minimumSpanY: Int,
+    onMinimumSpanYChanged: (Int) -> Unit,
     onOpenSheet: (androidx.compose.ui.layout.LayoutCoordinates, Offset) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -1729,8 +1859,7 @@ private fun DashboardCard(
     val cardConfig = configs[instanceId]
     val appState = LocalAppState.current
     val spec = factorySpecForEntity(entity, cardConfig)
-    val minSpanY = cardMinimumSpanY(spec, entity, cardConfig, allEntities, context)
-    val cardSpanY = cardSpanY(cardConfig, minSpanY, isLandscape)
+    val cardSpanY = cardSpanY(cardConfig, minimumSpanY, isLandscape)
     val cardSpanX = cardSpanX(cardConfig, gridColumns, isLandscape, cardMinimumSpanX(spec))
     val cardKey = "ent:$instanceId"
     val isActiveCard = edit && activeCardKey == cardKey
@@ -1813,6 +1942,11 @@ private fun DashboardCard(
                 onUpdated = onRefresh,
                 isEdit = edit,
                 configKey = instanceId,
+                onMinimumHeightChanged = { requiredHeight ->
+                    onMinimumSpanYChanged(
+                        cardSpanYForHeight(requiredHeight.value, cardRowHeight.value)
+                    )
+                },
                 onCameraNavigate = { camera ->
                     when (camera.source) {
                         CameraSource.FRIGATE -> onNavigate(AppDest.Detail(camera.id, appState.frigateUrl, appState.token))

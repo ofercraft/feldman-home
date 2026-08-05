@@ -69,6 +69,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import com.feldman.ha.ui.camera.CameraCard
 import com.feldman.ha.ui.camera.CameraCardConfig
 import com.feldman.ha.ui.camera.cameraCardConfigFromFactory
@@ -98,6 +100,7 @@ fun FactoryCard(
     onUpdated: () -> Unit,
     isEdit: Boolean = false,
     onCameraNavigate: ((CameraCardConfig) -> Unit)? = null,
+    onMinimumHeightChanged: (Dp) -> Unit = {},
     // Per-card-instance key for config/name lookup. Equals entity_id for normal single
     // cards; a duplicate card of the same entity passes a distinct instance id.
     configKey: String = entity.entity_id
@@ -343,6 +346,13 @@ fun FactoryCard(
     val customCardIcon = (config["icon"] as? String)?.takeIf { it.isNotBlank() }
     val cardIcon = resolveAppIcon(customCardIcon ?: resolveEntityIcon(entity) ?: resolveStateCardIcon(entity, spec) ?: spec.iconRes ?: resolveDomainIcon(spec.domain))
         ?: painterResource(R.drawable.ic_help)
+    val headerTextMeasurer = rememberTextMeasurer()
+    val headerDensity = LocalDensity.current
+    val titleStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontSize = 15.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+    val stateStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp)
 
     Card(
         modifier = modifier,
@@ -356,21 +366,44 @@ fun FactoryCard(
                 .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .heightIn(min = 50.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
+                val textWidthPx = with(headerDensity) {
+                    (maxWidth - 62.dp).coerceAtLeast(0.dp).roundToPx()
+                }
+                val titleHeightPx = headerTextMeasurer.measure(
+                    text = displayName,
+                    style = titleStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = textWidthPx)
+                ).size.height
+                val stateHeightPx = headerTextMeasurer.measure(
+                    text = finalDisplayState,
+                    style = stateStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    constraints = Constraints(maxWidth = textWidthPx)
+                ).size.height
+                val textHeight = with(headerDensity) { (titleHeightPx + stateHeightPx).toDp() }
+                val requiredCardHeight = 24.dp + maxOf(50.dp, textHeight) + 58.dp * visibleRows.size
+                SideEffect {
+                    onMinimumHeightChanged(requiredCardHeight)
+                }
+
                 Row(
                     modifier = Modifier
-                        .height(IntrinsicSize.Min),
+                        .fillMaxWidth()
+                        .heightIn(min = 50.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f)
+                            .size(50.dp)
                             .clip(CircleShape)
                             .background(colors.headerIcon.copy(alpha = if (colors.isDark) 0.18f else 0.12f)),
                         contentAlignment = Alignment.Center
@@ -383,16 +416,21 @@ fun FactoryCard(
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = displayName,
                             color = colors.onBackground,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
+                            style = titleStyle,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = finalDisplayState,
+                            color = colors.onBackgroundVariant,
+                            style = stateStyle,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(text = finalDisplayState, color = colors.onBackgroundVariant, fontSize = 12.sp)
                     }
                 }
             }

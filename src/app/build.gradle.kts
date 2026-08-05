@@ -195,6 +195,34 @@ extensions.configure<ApplicationExtension> {
     }
 }
 
+val releaseVersionName = extensions.getByType<ApplicationExtension>().defaultConfig.versionName
+    ?: error("Release versionName is not configured")
+val releaseApkDirectory = layout.buildDirectory.dir("outputs/apk/release")
+val signedReleaseApk = releaseApkDirectory.map { it.file("app-release.apk") }
+val versionedReleaseApk = releaseApkDirectory.map { it.file("app-release-$releaseVersionName.apk") }
+val copyVersionedReleaseApk = tasks.register("copyVersionedReleaseApk") {
+    dependsOn("packageRelease")
+    inputs.file(signedReleaseApk).optional()
+    outputs.file(versionedReleaseApk)
+    onlyIf {
+        listOf(
+            "RELEASE_STORE_FILE",
+            "RELEASE_STORE_PASSWORD",
+            "RELEASE_KEY_ALIAS",
+            "RELEASE_KEY_PASSWORD"
+        ).all { providers.environmentVariable(it).isPresent } && signedReleaseApk.get().asFile.exists()
+    }
+    doLast {
+        signedReleaseApk.get().asFile.copyTo(
+            versionedReleaseApk.get().asFile,
+            overwrite = true
+        )
+    }
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    finalizedBy(copyVersionedReleaseApk)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)

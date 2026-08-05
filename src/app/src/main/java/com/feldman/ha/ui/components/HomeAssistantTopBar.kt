@@ -35,13 +35,21 @@ fun HomeAssistantTopBar(
     } else {
         colorScheme.surfaceContainerHigh
     }
-    val titleColor = lerp(
-        if (expressiveCanvas) colorScheme.primary else colorScheme.onSurface,
-        colorScheme.tertiary,
-        modeProgress
-    )
-    val actionContainerColor = lerp(colorScheme.primary, colorScheme.tertiary, modeProgress)
-    val actionContentColor = lerp(colorScheme.onPrimary, colorScheme.onTertiary, modeProgress)
+    val titleColor = if (expressiveCanvas) {
+        lerp(colorScheme.primary, colorScheme.tertiary, modeProgress)
+    } else {
+        colorScheme.onSurface
+    }
+    val actionContainerColor = if (expressiveCanvas) {
+        lerp(colorScheme.primary, colorScheme.tertiary, modeProgress)
+    } else {
+        colorScheme.primary
+    }
+    val actionContentColor = if (expressiveCanvas) {
+        lerp(colorScheme.onPrimary, colorScheme.onTertiary, modeProgress)
+    } else {
+        colorScheme.onPrimary
+    }
     
     TopAppBar(
         title = {

@@ -34,7 +34,7 @@
         <!-- main launcher -->
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
             android:supportsPictureInPicture="true"
             android:exported="true">
             <intent-filter>

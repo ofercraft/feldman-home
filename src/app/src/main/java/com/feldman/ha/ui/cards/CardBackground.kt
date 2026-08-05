@@ -55,8 +55,9 @@ object ExpressiveCanvasSetting {
 
     fun isEnabled(context: Context): Boolean {
         revision.intValue
-        return context.getSharedPreferences("ha_prefs", Context.MODE_PRIVATE)
-            .getBoolean(PREF_KEY, true)
+        return CardBackgroundSetting.useSecondary(context) &&
+            context.getSharedPreferences("ha_prefs", Context.MODE_PRIVATE)
+                .getBoolean(PREF_KEY, true)
     }
 
     fun setEnabled(context: Context, value: Boolean) {
