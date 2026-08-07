@@ -135,8 +135,8 @@ extensions.configure<ApplicationExtension> {
         applicationId = "com.feldman.ha"
         minSdk = 31
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.0.1"
+        versionCode = 9
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
